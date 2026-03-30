@@ -8,7 +8,7 @@ import time
 # =========================
 # CONFIG
 # =========================
-repo_id = "shreyackdeshpande/tourism-space-HF"
+repo_id = "shreyackdeshpande/tourism"
 repo_type = "space"
 
 api = HfApi(token=os.getenv("HF_TOKEN"))
