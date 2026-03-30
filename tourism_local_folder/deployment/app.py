@@ -9,7 +9,7 @@ import joblib
 try:
     model_path = hf_hub_download(
         repo_id="shreyackdeshpande/tourism-model",
-        filename="best_tourism_model.joblib"
+        filename="best_tourism_model.joblib" 
     )
     model = joblib.load(model_path)
     st.success("Model loaded successfully ✅")
