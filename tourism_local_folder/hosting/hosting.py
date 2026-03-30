@@ -1,7 +1,7 @@
 from huggingface_hub import HfApi
 import os
 
-api = HfApi(token=os.getenv("TOURISM_HF_TOKEN"))
+api = HfApi(token=os.getenv("HF_TOKEN"))
 api.upload_folder(
     folder_path="tourism_local_folder/deployment",     # the local folder containing your files
     repo_id = "shreyackdeshpande/tourism-space-HF",          # the target repo
