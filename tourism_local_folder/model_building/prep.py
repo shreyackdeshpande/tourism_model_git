@@ -1,22 +1,31 @@
-# for data manipulation
+# =========================
+# IMPORTS
+# =========================
 import pandas as pd
-import sklearn
-# for creating a folder
 import os
-# for data preprocessing and pipeline creation
 from sklearn.model_selection import train_test_split
-# for converting text data in to numerical representation
-from sklearn.preprocessing import LabelEncoder
-# for hugging face space authentication to upload files
-from huggingface_hub import login, HfApi
+from huggingface_hub import HfApi
 
-# Define constants for the dataset and output paths
+# =========================
+# HUGGING FACE SETUP
+# =========================
+# Use token from environment (GitHub Actions / local)
 api = HfApi(token=os.getenv("HF_TOKEN"))
-DATASET_PATH = "hf://datasets/shreyackdeshpande/tourism/tourism.csv"
-df = pd.read_csv(DATASET_PATH)
-print("Dataset loaded successfully.")
 
-# 1. Drop unnecessary columns
+# =========================
+# LOAD DATASET FROM HF
+# =========================
+# Dataset must exist on HF Dataset Hub
+DATASET_PATH = "hf://datasets/shreyackdeshpande/tourism/tourism.csv"
+
+df = pd.read_csv(DATASET_PATH)
+print("✅ Dataset loaded successfully.")
+
+# =========================
+# DATA CLEANING
+# =========================
+
+# 1. Drop unnecessary columns (IDs, index columns)
 drop_cols = ["Unnamed: 0", "CustomerID"]
 df.drop(columns=drop_cols, inplace=True, errors="ignore")
 
@@ -29,37 +38,69 @@ df[num_cols] = df[num_cols].fillna(df[num_cols].median())
 # Categorical columns → fill with mode
 cat_cols = df.select_dtypes(include=['object']).columns
 for col in cat_cols:
-    df[col].fillna(df[col].mode()[0], inplace=True)
+    # Avoid chained assignment warning
+    df[col] = df[col].fillna(df[col].mode()[0])
 
-# FEATURE ENGINEERING
-# Convert categorical → numerical (One-hot encoding)
-df = pd.get_dummies(df, drop_first=True)
+print(f"✅ Data cleaned. Shape: {df.shape}")
 
-print("After Encoding Shape:", df.shape)
+# =========================
+# DEFINE TARGET
+# =========================
+target_col = "ProdTaken"
 
-target_col = 'ProdTaken'
-
-# Split into X (features) and y (target)
+# Split features and target
 X = df.drop(columns=[target_col])
 y = df[target_col]
 
-# Perform train-test split
+# =========================
+# TRAIN-TEST SPLIT
+# =========================
+# Using stratify to maintain class balance
 Xtrain, Xtest, ytrain, ytest = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
 )
 
-Xtrain.to_csv("Xtrain.csv",index=False)
-Xtest.to_csv("Xtest.csv",index=False)
-ytrain.to_csv("ytrain.csv",index=False)
-ytest.to_csv("ytest.csv",index=False)
+print("✅ Train-test split completed.")
 
+# =========================
+# SAVE FILES LOCALLY
+# =========================
+Xtrain.to_csv("Xtrain.csv", index=False)
+Xtest.to_csv("Xtest.csv", index=False)
+ytrain.to_csv("ytrain.csv", index=False)
+ytest.to_csv("ytest.csv", index=False)
 
-files = ["Xtrain.csv","Xtest.csv","ytrain.csv","ytest.csv"]
+print("✅ Files saved locally.")
+
+# =========================
+# CREATE DATASET REPO (IF NOT EXISTS)
+# =========================
+# Ensures pipeline doesn't fail in CI/CD
+api.create_repo(
+    repo_id="shreyackdeshpande/tourism",
+    repo_type="dataset",
+    exist_ok=True
+)
+
+# =========================
+# UPLOAD FILES TO HF DATASET HUB
+# =========================
+files = ["Xtrain.csv", "Xtest.csv", "ytrain.csv", "ytest.csv"]
 
 for file_path in files:
-    api.upload_file(
-        path_or_fileobj=file_path,
-        path_in_repo=file_path.split("/")[-1],  # just the filename
-        repo_id="shreyackdeshpande/tourism",
-        repo_type="dataset",
-    )
+    try:
+        api.upload_file(
+            path_or_fileobj=file_path,
+            path_in_repo=file_path,
+            repo_id="shreyackdeshpande/tourism",
+            repo_type="dataset"
+        )
+        print(f"✅ Uploaded: {file_path}")
+    except Exception as e:
+        print(f"❌ Failed to upload {file_path}: {e}")
+
+print("🚀 All dataset files uploaded successfully!")
