@@ -4,7 +4,7 @@ from huggingface_hub import hf_hub_download
 import joblib
 
 # Download and load the model
-model_path = hf_hub_download(repo_id = "shreyackdeshpande/tourism-space-HF", filename="best_tourism_model_v1.joblib")
+model_path = hf_hub_download(repo_id = "shreyackdeshpande/tourism", filename="best_tourism_model.joblib")
 model = joblib.load(model_path)
 
 # Streamlit UI
