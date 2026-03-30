@@ -11,24 +11,26 @@ import xgboost as xgb
 import joblib
 import os
 import mlflow
+import time
 from huggingface_hub import HfApi, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
 # =========================
-# MLFLOW SETUP
+# MLFLOW SETUP (CI/CD SAFE)
 # =========================
-mlflow.set_tracking_uri("http://localhost:5000")
+# Use local file-based tracking (works in GitHub Actions)
+mlflow.set_tracking_uri("file:./mlruns")
 mlflow.set_experiment("tourism-training-experiment")
 
 # =========================
-# LOAD DATA FROM HF
+# LOAD DATA FROM HF DATASET
 # =========================
 Xtrain = pd.read_csv("hf://datasets/shreyackdeshpande/tourism/Xtrain.csv")
 Xtest = pd.read_csv("hf://datasets/shreyackdeshpande/tourism/Xtest.csv")
 ytrain = pd.read_csv("hf://datasets/shreyackdeshpande/tourism/ytrain.csv")
 ytest = pd.read_csv("hf://datasets/shreyackdeshpande/tourism/ytest.csv")
 
-print("Dataset loaded successfully.")
+print("✅ Dataset loaded successfully.")
 
 # =========================
 # FIX TARGET SHAPE
@@ -37,28 +39,23 @@ ytrain = ytrain.squeeze()
 ytest = ytest.squeeze()
 
 # =========================
-# FEATURE LISTS
+# AUTO DETECT FEATURE TYPES (ROBUST)
 # =========================
-num_cols = [
-    'Age','CityTier','DurationOfPitch','NumberOfPersonVisiting',
-    'NumberOfFollowups','PreferredPropertyStar','NumberOfTrips',
-    'Passport','PitchSatisfactionScore','OwnCar',
-    'NumberOfChildrenVisiting','MonthlyIncome'
-]
-
-cat_cols = [
-    'TypeofContact','Occupation','Gender',
-    'ProductPitched','MaritalStatus','Designation'
-]
+num_cols = Xtrain.select_dtypes(include=['int64', 'float64']).columns.tolist()
+cat_cols = Xtrain.select_dtypes(include=['object']).columns.tolist()
 
 # =========================
-# CLASS WEIGHT
+# CLASS WEIGHT (SAFE)
 # =========================
 class_counts = ytrain.value_counts()
-class_weight = class_counts.get(0, 1) / class_counts.get(1, 1)
+
+class_weight = (
+    class_counts.get(0, 1) / class_counts.get(1, 1)
+    if class_counts.get(1, 0) != 0 else 1
+)
 
 # =========================
-# PREPROCESSOR
+# PREPROCESSOR (ONLY USED IF RAW DATA)
 # =========================
 preprocessor = make_column_transformer(
     (StandardScaler(), num_cols),
@@ -74,36 +71,29 @@ xgb_model = xgb.XGBClassifier(
 )
 
 # =========================
-# AUTO DETECT PREPROCESSING
+# AUTO DETECT IF DATA IS ALREADY ENCODED
 # =========================
 missing_cols = [col for col in cat_cols if col not in Xtrain.columns]
 
 if missing_cols:
-    print("Detected PREPROCESSED data → Skipping encoder")
+    print("⚠️ Detected PREPROCESSED data → Skipping encoder")
     model_pipeline = xgb_model
-else:
-    print("Detected RAW data → Using full pipeline")
-    model_pipeline = make_pipeline(preprocessor, xgb_model)
-
-# =========================
-# PARAM GRID
-# =========================
-param_grid = {
-    'xgbclassifier__n_estimators': [50, 75],
-    'xgbclassifier__max_depth': [3, 4],
-    'xgbclassifier__learning_rate': [0.05, 0.1],
-}
-
-# Fix param grid if no pipeline
-if missing_cols:
     param_grid = {
         'n_estimators': [50, 75],
         'max_depth': [3, 4],
         'learning_rate': [0.05, 0.1],
     }
+else:
+    print("✅ Detected RAW data → Using full pipeline")
+    model_pipeline = make_pipeline(preprocessor, xgb_model)
+    param_grid = {
+        'xgbclassifier__n_estimators': [50, 75],
+        'xgbclassifier__max_depth': [3, 4],
+        'xgbclassifier__learning_rate': [0.05, 0.1],
+    }
 
 # =========================
-# TRAINING
+# TRAINING WITH MLFLOW
 # =========================
 with mlflow.start_run():
 
@@ -147,13 +137,12 @@ with mlflow.start_run():
 
     mlflow.log_artifact(model_path)
 
-    print("Model saved successfully.")
+    print("✅ Model saved successfully.")
 
     # =========================
     # UPLOAD TO HF MODEL HUB
     # =========================
     api = HfApi(token=os.getenv("HF_TOKEN"))
-
     repo_id = "shreyackdeshpande/tourism-model"
 
     try:
@@ -163,11 +152,17 @@ with mlflow.start_run():
         print("Creating model repo...")
         create_repo(repo_id=repo_id, repo_type="model", exist_ok=True)
 
-    api.upload_file(
-        path_or_fileobj=model_path,
-        path_in_repo=model_path,
-        repo_id=repo_id,
-        repo_type="model"
-    )
-
-    print("Model uploaded to Hugging Face 🚀")
+    # Retry logic for upload (handles HF failures)
+    for i in range(3):
+        try:
+            api.upload_file(
+                path_or_fileobj=model_path,
+                path_in_repo=model_path,
+                repo_id=repo_id,
+                repo_type="model"
+            )
+            print("🚀 Model uploaded successfully!")
+            break
+        except Exception as e:
+            print(f"Retry {i+1} failed:", e)
+            time.sleep(5)
