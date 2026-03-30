@@ -3,15 +3,22 @@ import pandas as pd
 from huggingface_hub import hf_hub_download
 import joblib
 
-# Download and load the model
-model_path = hf_hub_download(repo_id = "shreyackdeshpande/tourism", filename="best_tourism_model.joblib")
-model = joblib.load(model_path)
+# =========================
+# LOAD MODEL FROM HF
+# =========================
+try:
+    model_path = hf_hub_download(
+        repo_id="shreyackdeshpande/tourism-model",
+        filename="best_tourism_model.joblib"
+    )
+    model = joblib.load(model_path)
+    st.success("Model loaded successfully ✅")
+except Exception as e:
+    st.error(f"Error loading model: {e}")
 
-# Streamlit UI
-import streamlit as st
-import pandas as pd
-import joblib
-
+# =========================
+# STREAMLIT UI
+# =========================
 st.title("🌍 Tourism Conversion Prediction")
 
 # NUMERICAL INPUTS
@@ -36,7 +43,9 @@ ProductPitched = st.selectbox("Product Pitched", ["Basic", "Standard", "Deluxe",
 MaritalStatus = st.selectbox("Marital Status", ["Single", "Married", "Divorced"])
 Designation = st.selectbox("Designation", ["Manager", "Senior Manager", "Executive", "AVP", "VP"])
 
-# CREATE INPUT DATAFRAME
+# =========================
+# CREATE INPUT DATA
+# =========================
 input_data = pd.DataFrame([{
     "Age": Age,
     "CityTier": CityTier,
@@ -58,12 +67,25 @@ input_data = pd.DataFrame([{
     "Designation": Designation
 }])
 
+# =========================
 # PREDICTION
+# =========================
 if st.button("Predict"):
-    prediction = model.predict(input_data)[0]
-    probability = model.predict_proba(input_data)[0][1]
+    try:
+        # Ensure correct column order
+        input_data = input_data[model.feature_names_in_]
 
-    if prediction == 1:
-        st.success(f" Customer is likely to PURCHASE (Probability: {probability:.2f})")
-    else:
-        st.error(f" Customer is NOT likely to purchase (Probability: {probability:.2f})")
+        prediction = model.predict(input_data)[0]
+
+        if hasattr(model, "predict_proba"):
+            probability = model.predict_proba(input_data)[0][1]
+        else:
+            probability = 0
+
+        if prediction == 1:
+            st.success(f"✅ Customer is likely to PURCHASE (Probability: {probability:.2f})")
+        else:
+            st.error(f"❌ Customer is NOT likely to purchase (Probability: {probability:.2f})")
+
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
