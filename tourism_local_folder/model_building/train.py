@@ -57,6 +57,11 @@ cat_cols = [
 
 target_col = 'ProdTaken'
 
+class_counts = ytrain.value_counts()
+
+class_weight = class_counts.get(0, 1) / class_counts.get(1, 1)
+class_weight
+
 # Define the preprocessing steps
 preprocessor = make_column_transformer(
     (StandardScaler(), num_cols),
