@@ -12,21 +12,21 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-st.title("🌍 Tourism Conversion Prediction")
+st.title("Tourism Conversion Prediction")
 
 # NUMERICAL INPUTS
-Age = st.slider("Age", 18, 70, 30)
+Age = st.slider("Age", 18, 70, 11)
 CityTier = st.selectbox("City Tier", [1, 2, 3])
-DurationOfPitch = st.slider("Duration Of Pitch", 5, 60, 20)
-NumberOfPersonVisiting = st.slider("Number Of Persons Visiting", 1, 10, 2)
+DurationOfPitch = st.slider("Duration Of Pitch", 5, 60, 22)
+NumberOfPersonVisiting = st.slider("Number Of Persons Visiting", 1, 10, 3)
 NumberOfFollowups = st.slider("Number Of Followups", 0, 10, 3)
 PreferredPropertyStar = st.selectbox("Preferred Property Star", [1, 2, 3, 4, 5])
-NumberOfTrips = st.slider("Number Of Trips", 0, 10, 2)
+NumberOfTrips = st.slider("Number Of Trips", 0, 10, 3)
 Passport = st.selectbox("Has Passport", [0, 1])
-PitchSatisfactionScore = st.slider("Pitch Satisfaction Score", 1, 5, 3)
+PitchSatisfactionScore = st.slider("Pitch Satisfaction Score", 1, 5, 4)
 OwnCar = st.selectbox("Own Car", [0, 1])
 NumberOfChildrenVisiting = st.slider("Children Visiting", 0, 5, 0)
-MonthlyIncome = st.number_input("Monthly Income", min_value=1000, max_value=1000000, value=30000)
+MonthlyIncome = st.number_input("Monthly Income", min_value=1000, max_value=1000000, value=63000)
 
 # CATEGORICAL INPUTS
 TypeofContact = st.selectbox("Type of Contact", ["Company Invited", "Self Inquiry"])
