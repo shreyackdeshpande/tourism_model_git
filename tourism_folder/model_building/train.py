@@ -63,6 +63,13 @@ preprocessor = make_column_transformer(
     (OneHotEncoder(handle_unknown='ignore', sparse_output=False), cat_cols)
 )
 
+class_counts = ytrain.value_counts()
+
+class_weight = (
+    class_counts.get(0, 1) / class_counts.get(1, 1)
+    if class_counts.get(1, 0) != 0 else 1
+)
+
 # Define base XGBoost model
 xgb_model = xgb.XGBClassifier(scale_pos_weight=class_weight, random_state=42)
 
